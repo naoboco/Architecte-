@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#171717" />
+  <title>ARCHI — Le jeu d'architecture</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <button class="brand" data-nav="home" aria-label="Accueil">
+        <span class="brand-mark">A</span>
+        <span><b>ARCHI</b><small>studio</small></span>
+      </button>
+      <div class="player-status">
+        <div class="level-pill"><span id="rankLabel">Apprentie</span> · Niv. <b id="levelLabel">1</b></div>
+        <div class="xp-wrap"><div class="xp-bar"><span id="xpFill"></span></div><small id="xpText">0 / 250 XP</small></div>
+      </div>
+      <button id="soundToggle" class="icon-btn" title="Sons">🔊</button>
+    </header>
+
+    <main id="app"></main>
+
+    <nav class="bottom-nav" aria-label="Navigation principale">
+      <button data-nav="home" class="active"><span>⌂</span><small>Accueil</small></button>
+      <button data-nav="career"><span>◆</span><small>Missions</small></button>
+      <button data-nav="studio"><span>▦</span><small>Studio</small></button>
+      <button data-nav="explore"><span>◉</span><small>Explorer</small></button>
+      <button data-nav="portfolio"><span>▣</span><small>Portfolio</small></button>
+    </nav>
+  </div>
+
+  <template id="homeTemplate">
+    <section class="screen home-screen">
+      <div class="hero-card">
+        <div>
+          <span class="eyebrow">MODE CARRIÈRE</span>
+          <h1>Construis. Teste.<br><em>Deviens architecte.</em></h1>
+          <p>Pas de cours interminable : des clients, des contraintes et des bâtiments qui doivent réellement fonctionner.</p>
+          <div class="hero-actions">
+            <button class="primary" data-action="continue-mission">Continuer la mission</button>
+            <button class="secondary" data-nav="studio">Mode créatif</button>
+          </div>
+        </div>
+        <div class="hero-visual" aria-hidden="true">
+          <div class="iso-building">
+            <div class="iso-roof"></div><div class="iso-left"></div><div class="iso-right"></div>
+            <i class="w1"></i><i class="w2"></i><i class="door"></i>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-head"><div><span class="eyebrow">AUJOURD'HUI</span><h2>Mission du jour</h2></div><span class="reward">+80 XP</span></div>
+      <button class="daily-card" data-game="light">
+        <div class="daily-icon">☀️</div>
+        <div><b>La chambre du matin</b><p>Place la fenêtre pour obtenir un maximum de lumière à 8h sans surchauffer à 16h.</p></div>
+        <span>→</span>
+      </button>
+
+      <div class="section-head"><div><span class="eyebrow">TON ATELIER</span><h2>Jouer & expérimenter</h2></div></div>
+      <div class="game-grid">
+        <button class="game-card" data-nav="studio"><span class="game-num">01</span><div class="game-art plan-art"><i></i><i></i><i></i></div><b>Planificateur</b><small>Dessine et aménage</small></button>
+        <button class="game-card" data-game="structure"><span class="game-num">02</span><div class="game-art bridge-art"><i></i><i></i><i></i></div><b>Structures</b><small>Construis puis charge</small></button>
+        <button class="game-card" data-game="light"><span class="game-num">03</span><div class="game-art sun-art">☀︎</div><b>Lumière</b><small>Oriente les ouvertures</small></button>
+        <button class="game-card" data-game="scale"><span class="game-num">04</span><div class="game-art ruler-art">1:50</div><b>Échelles</b><small>Du réel au plan</small></button>
+      </div>
+    </section>
+  </template>
+
+  <template id="careerTemplate">
+    <section class="screen">
+      <div class="page-title"><span class="eyebrow">MODE CARRIÈRE</span><h1>Ton agence</h1><p>Chaque client débloque une nouvelle compétence d'architecte.</p></div>
+      <div id="missionList" class="mission-list"></div>
+    </section>
+  </template>
+
+  <template id="studioTemplate">
+    <section class="screen studio-screen">
+      <div class="page-title row-title"><div><span class="eyebrow">STUDIO 2D</span><h1 id="studioTitle">Ma première maison</h1></div><div class="studio-score"><small>SURFACE</small><b id="totalArea">0 m²</b></div></div>
+      <div class="studio-layout">
+        <aside class="tool-panel">
+          <div class="tool-section"><b>Pièces</b><button data-add-room="Salon">+ Salon</button><button data-add-room="Chambre">+ Chambre</button><button data-add-room="Cuisine">+ Cuisine</button><button data-add-room="SDB">+ Salle de bain</button></div>
+          <div class="tool-section"><b>Ouvertures</b><button data-add-item="door">+ Porte</button><button data-add-item="window">+ Fenêtre</button></div>
+          <div class="tool-section"><b>Mobilier</b><button data-add-item="bed">+ Lit</button><button data-add-item="sofa">+ Canapé</button><button data-add-item="table">+ Table</button><button data-add-item="desk">+ Bureau</button></div>
+          <div class="tool-section"><b>Projet</b><button id="deleteSelected">Supprimer</button><button id="resetStudio">Réinitialiser</button></div>
+        </aside>
+        <div class="canvas-panel">
+          <div class="canvas-topline"><span>Terrain 12 × 10 m · grille 0,5 m</span><span id="studioHint">Glisse les pièces. Tire le coin ↘ pour les redimensionner.</span></div>
+          <canvas id="studioCanvas" width="900" height="650" aria-label="Plan de maison interactif"></canvas>
+          <div class="canvas-actions"><button class="secondary" id="validatePlan">Analyser mon plan</button><button class="primary" id="saveProject">Sauvegarder au portfolio</button></div>
+        </div>
+        <aside class="inspector" id="inspector"><span class="eyebrow">INSPECTEUR</span><h3>Sélectionne un élément</h3><p>Ses dimensions et propriétés apparaîtront ici.</p></aside>
+      </div>
+    </section>
+  </template>
+
+  <template id="exploreTemplate">
+    <section class="screen">
+      <div class="page-title"><span class="eyebrow">INSPIRATION</span><h1>Explorer l'architecture</h1><p>Observe comme une architecte : forme, structure, lumière, matière.</p></div>
+      <div id="exploreFeed" class="explore-feed"></div>
+    </section>
+  </template>
+
+  <template id="portfolioTemplate">
+    <section class="screen">
+      <div class="page-title"><span class="eyebrow">MON TRAVAIL</span><h1>Portfolio</h1><p>Les projets sauvegardés dans ton studio apparaissent ici.</p></div>
+      <div id="portfolioGrid" class="portfolio-grid"></div>
+    </section>
+  </template>
+
+  <template id="gameTemplate">
+    <section class="screen game-screen">
+      <button class="back-btn" data-nav="home">← Retour</button>
+      <div id="gameMount"></div>
+    </section>
+  </template>
+
+  <div id="toast" class="toast" role="status"></div>
+  <script src="app.js"></script>
+</body>
+</html>

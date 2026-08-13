@@ -25,16 +25,23 @@
     const button = document.getElementById('installApp');
     if (!button) return;
 
-    button.textContent = '📲 Installer l’application';
-    button.hidden = true;
-
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-    if (isStandalone) return;
+    if (isStandalone) {
+      button.hidden = true;
+      return;
+    }
+
+    button.hidden = false;
+    button.disabled = true;
+    button.textContent = '📲 Préparation…';
+    button.style.opacity = '.6';
 
     window.addEventListener('beforeinstallprompt', (event) => {
       event.preventDefault();
       deferredPrompt = event;
-      button.hidden = false;
+      button.disabled = false;
+      button.textContent = '📲 Installer l’application';
+      button.style.opacity = '1';
     });
 
     button.addEventListener('click', async () => {
@@ -46,8 +53,8 @@
     });
 
     window.addEventListener('appinstalled', () => {
-      deferredPrompt = null;
       button.hidden = true;
+      deferredPrompt = null;
     });
 
     if ('serviceWorker' in navigator) {

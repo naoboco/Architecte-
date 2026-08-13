@@ -102,6 +102,12 @@
   function renderStudio(){
     renderTemplate('#studioTemplate');
     const canvas=$('#studioCanvas'),ctx=canvas.getContext('2d');
+    canvas.style.touchAction='none';
+    canvas.style.userSelect='none';
+    canvas.style.webkitUserSelect='none';
+    const hint=$('#studioHint');
+    if(hint) hint.textContent='Glisse librement · poignée ronde ↻ pour tourner · coin ↘ pour redimensionner.';
+
     let model=state.studio?JSON.parse(JSON.stringify(state.studio)):initialStudio();
     let drag=null;
     const colors={Salon:'#d8ff53',Chambre:'#b8d7e7',Cuisine:'#f6c88d',SDB:'#d8c7f0'};
@@ -109,13 +115,33 @@
 
     function xy(e){const r=canvas.getBoundingClientRect();return {x:(e.clientX-r.left)*(canvas.width/r.width),y:(e.clientY-r.top)*(canvas.height/r.height)}}
     function toM(p){return {x:(p.x-80)/SCALE,y:(p.y-70)/SCALE}}
-    function snap(v){return Math.round(v/GRID)*GRID}
+    function toPx(p){return {x:80+p.x*SCALE,y:70+p.y*SCALE}}
+    function clamp(v,min,max){return Math.max(min,Math.min(max,v))}
+    function round(v,step=.01){return Math.round(v/step)*step}
+    function normDeg(v){return ((v%360)+360)%360}
     function roomAt(mx,my){return [...model.rooms].reverse().find(r=>mx>=r.x&&mx<=r.x+r.w&&my>=r.y&&my<=r.y+r.h)}
-    function itemAt(mx,my){return [...model.items].reverse().find(i=>mx>=i.x&&mx<=i.x+i.w&&my>=i.y&&my<=i.y+i.h)}
+    function pointInItem(i,mx,my){
+      const cx=i.x+i.w/2,cy=i.y+i.h/2,a=-(i.rot||0)*Math.PI/180;
+      const dx=mx-cx,dy=my-cy,cos=Math.cos(a),sin=Math.sin(a);
+      const lx=dx*cos-dy*sin,ly=dx*sin+dy*cos,pad=.20;
+      return Math.abs(lx)<=i.w/2+pad&&Math.abs(ly)<=i.h/2+pad;
+    }
+    function itemAt(mx,my){return [...model.items].reverse().find(i=>pointInItem(i,mx,my))}
     function selectedObj(){return model.rooms.find(x=>x.id===model.selected)||model.items.find(x=>x.id===model.selected)}
-    function draw(){
+    function rotationHandle(i){
+      const a=(i.rot||0)*Math.PI/180,cx=i.x+i.w/2,cy=i.y+i.h/2,d=i.h/2+.62;
+      return {x:cx+Math.sin(a)*d,y:cy-Math.cos(a)*d,cx,cy};
+    }
+    function onRotationHandle(i,mx,my){if(!i||i.type==='room')return false;const h=rotationHandle(i);return Math.hypot(mx-h.x,my-h.y)<.42}
+    function constrainItem(o,newX,newY){
+      const a=(o.rot||0)*Math.PI/180,cos=Math.abs(Math.cos(a)),sin=Math.abs(Math.sin(a));
+      const hw=(o.w*cos+o.h*sin)/2,hh=(o.w*sin+o.h*cos)/2;
+      let cx=newX+o.w/2,cy=newY+o.h/2;
+      cx=clamp(cx,hw,12-hw);cy=clamp(cy,hh,10-hh);
+      o.x=cx-o.w/2;o.y=cy-o.h/2;
+    }
+    function draw(refreshInspector=true){
       ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#f7f5ef';ctx.fillRect(0,0,canvas.width,canvas.height);
-      // terrain
       ctx.save();ctx.translate(80,70);ctx.strokeStyle='#d7d2c9';ctx.lineWidth=1;
       for(let x=0;x<=12;x+=.5){ctx.beginPath();ctx.moveTo(x*SCALE,0);ctx.lineTo(x*SCALE,10*SCALE);ctx.stroke()}
       for(let y=0;y<=10;y+=.5){ctx.beginPath();ctx.moveTo(0,y*SCALE);ctx.lineTo(12*SCALE,y*SCALE);ctx.stroke()}
@@ -124,32 +150,74 @@
         const x=80+r.x*SCALE,y=70+r.y*SCALE,w=r.w*SCALE,h=r.h*SCALE;
         ctx.fillStyle=colors[r.name]||'#ddd';ctx.globalAlpha=.66;ctx.fillRect(x,y,w,h);ctx.globalAlpha=1;ctx.strokeStyle=r.id===model.selected?'#111':'#555';ctx.lineWidth=r.id===model.selected?4:2;ctx.strokeRect(x,y,w,h);
         ctx.fillStyle='#171717';ctx.font='700 15px system-ui';ctx.fillText(r.name,x+10,y+22);ctx.font='11px system-ui';ctx.fillText(`${r.w.toFixed(1)} × ${r.h.toFixed(1)} m · ${(r.w*r.h).toFixed(1)} m²`,x+10,y+40);
-        if(r.id===model.selected){ctx.fillStyle='#171717';ctx.fillRect(x+w-8,y+h-8,16,16)}
+        if(r.id===model.selected){ctx.fillStyle='#171717';ctx.fillRect(x+w-10,y+h-10,20,20)}
       });
       model.items.forEach(i=>{
         const d=itemDef[i.type]||{label:i.type,color:'#999'};const x=80+i.x*SCALE,y=70+i.y*SCALE,w=i.w*SCALE,h=i.h*SCALE;
-        ctx.save();ctx.translate(x+w/2,y+h/2);ctx.rotate((i.rot||0)*Math.PI/180);ctx.fillStyle=d.color;ctx.fillRect(-w/2,-h/2,w,h);ctx.strokeStyle=i.id===model.selected?'#111':'#6f6b64';ctx.lineWidth=i.id===model.selected?3:1.5;ctx.strokeRect(-w/2,-h/2,w,h);ctx.fillStyle='#171717';ctx.font='10px system-ui'; if(w>42&&h>20)ctx.fillText(d.label,-w/2+5,4);ctx.restore();
+        ctx.save();ctx.translate(x+w/2,y+h/2);ctx.rotate((i.rot||0)*Math.PI/180);ctx.fillStyle=d.color;ctx.fillRect(-w/2,-h/2,w,h);ctx.strokeStyle=i.id===model.selected?'#111':'#6f6b64';ctx.lineWidth=i.id===model.selected?3:1.5;ctx.strokeRect(-w/2,-h/2,w,h);ctx.fillStyle='#171717';ctx.font='10px system-ui';if(w>42&&h>20)ctx.fillText(d.label,-w/2+5,4);ctx.restore();
+        if(i.id===model.selected){
+          const rh=rotationHandle(i),hp=toPx(rh),cp=toPx({x:rh.cx,y:rh.cy});
+          ctx.strokeStyle='#171717';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(cp.x,cp.y);ctx.lineTo(hp.x,hp.y);ctx.stroke();
+          ctx.beginPath();ctx.arc(hp.x,hp.y,13,0,Math.PI*2);ctx.fillStyle='#d8ff53';ctx.fill();ctx.strokeStyle='#171717';ctx.lineWidth=2.5;ctx.stroke();
+          ctx.fillStyle='#171717';ctx.font='700 15px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('↻',hp.x,hp.y+1);ctx.textAlign='start';ctx.textBaseline='alphabetic';
+        }
       });
-      $('#totalArea').textContent=`${model.rooms.reduce((a,r)=>a+r.w*r.h,0).toFixed(1)} m²`;updateInspector();
+      $('#totalArea').textContent=`${model.rooms.reduce((a,r)=>a+r.w*r.h,0).toFixed(1)} m²`;
+      if(refreshInspector)updateInspector();
     }
     function updateInspector(){
-      const o=selectedObj(),box=$('#inspector'); if(!o){box.innerHTML='<span class="eyebrow">INSPECTEUR</span><h3>Sélectionne un élément</h3><p>Ses dimensions et propriétés apparaîtront ici.</p>';return}
+      const o=selectedObj(),box=$('#inspector');if(!o){box.innerHTML='<span class="eyebrow">INSPECTEUR</span><h3>Sélectionne un élément</h3><p>Glisse-le pour le déplacer. Sur un meuble, utilise la poignée ronde ↻ pour tourner.</p>';return}
       const isRoom=o.type==='room';
       box.innerHTML=`<span class="eyebrow">INSPECTEUR</span><h3>${isRoom?o.name:itemDef[o.type].label}</h3>
       <label>Largeur (m)<input id="propW" type="number" min="0.2" step="0.1" value="${o.w.toFixed(1)}"></label>
       <label>Profondeur (m)<input id="propH" type="number" min="0.1" step="0.1" value="${o.h.toFixed(1)}"></label>
-      ${!isRoom?`<label>Rotation<input id="propRot" type="range" min="0" max="360" step="15" value="${o.rot||0}"></label>`:''}
+      ${!isRoom?`<div style="margin-top:14px"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><b>Rotation</b><strong id="rotValue">${Math.round(normDeg(o.rot||0))}°</strong></div><input id="propRot" type="range" min="0" max="359" step="1" value="${Math.round(normDeg(o.rot||0))}" style="width:100%;margin:12px 0;touch-action:none"><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px"><button type="button" id="rotLeft">↺ 15°</button><button type="button" id="rotRight">↻ 15°</button><button type="button" id="rot90">90°</button><button type="button" id="rotReset">0°</button></div><small style="display:block;margin-top:8px;opacity:.7">Sur le plan : tire la poignée ronde ↻ autour de l’objet.</small></div>`:''}
       ${isRoom?`<p>Surface : <b>${(o.w*o.h).toFixed(2)} m²</b></p>`:''}`;
-      $('#propW').addEventListener('change',e=>{o.w=Math.max(.2,+e.target.value);persist();draw()});$('#propH').addEventListener('change',e=>{o.h=Math.max(.1,+e.target.value);persist();draw()});
-      if($('#propRot')) $('#propRot').addEventListener('input',e=>{o.rot=+e.target.value;persist();draw()});
+      $('#propW').addEventListener('change',e=>{o.w=Math.max(.2,+e.target.value);persist();draw()});
+      $('#propH').addEventListener('change',e=>{o.h=Math.max(.1,+e.target.value);persist();draw()});
+      const rot=$('#propRot');
+      if(rot){
+        const label=$('#rotValue');
+        rot.addEventListener('input',e=>{o.rot=normDeg(+e.target.value);label.textContent=`${Math.round(o.rot)}°`;draw(false)});
+        rot.addEventListener('change',()=>{persist();draw()});
+        const turn=(delta,absolute=false)=>{o.rot=absolute?normDeg(delta):normDeg((o.rot||0)+delta);persist();draw()};
+        $('#rotLeft').onclick=()=>turn(-15);$('#rotRight').onclick=()=>turn(15);$('#rot90').onclick=()=>turn(90,true);$('#rotReset').onclick=()=>turn(0,true);
+      }
     }
     function persist(){state.studio=JSON.parse(JSON.stringify(model));saveState()}
     canvas.addEventListener('pointerdown',e=>{
-      canvas.setPointerCapture(e.pointerId);const p=toM(xy(e));let o=itemAt(p.x,p.y)||roomAt(p.x,p.y);model.selected=o?.id||null;
-      if(o){const resize=o.type==='room'&&Math.abs(p.x-(o.x+o.w))<.28&&Math.abs(p.y-(o.y+o.h))<.28;drag={id:o.id,dx:p.x-o.x,dy:p.y-o.y,resize,startX:p.x,startY:p.y,startW:o.w,startH:o.h};beep(340,.03)}draw();
+      if(e.cancelable)e.preventDefault();
+      canvas.setPointerCapture(e.pointerId);const p=toM(xy(e));const already=selectedObj();
+      if(already&&onRotationHandle(already,p.x,p.y)){
+        model.selected=already.id;drag={id:already.id,mode:'rotate'};beep(340,.03);draw(false);return;
+      }
+      const o=itemAt(p.x,p.y)||roomAt(p.x,p.y);model.selected=o?.id||null;
+      if(o){
+        const resize=o.type==='room'&&Math.abs(p.x-(o.x+o.w))<.38&&Math.abs(p.y-(o.y+o.h))<.38;
+        drag={id:o.id,mode:resize?'resize':'move',dx:p.x-o.x,dy:p.y-o.y,startX:p.x,startY:p.y,startW:o.w,startH:o.h};beep(340,.03);
+      }
+      draw();
     });
-    canvas.addEventListener('pointermove',e=>{if(!drag)return;const p=toM(xy(e));const o=selectedObj();if(!o)return;if(drag.resize){o.w=Math.max(1,snap(drag.startW+p.x-drag.startX));o.h=Math.max(1,snap(drag.startH+p.y-drag.startY))}else{o.x=Math.max(0,Math.min(12-o.w,snap(p.x-drag.dx)));o.y=Math.max(0,Math.min(10-o.h,snap(p.y-drag.dy)))}draw()});
-    canvas.addEventListener('pointerup',()=>{if(drag){drag=null;persist();beep(460,.03)}});
+    canvas.addEventListener('pointermove',e=>{
+      if(!drag)return;if(e.cancelable)e.preventDefault();const p=toM(xy(e));const o=selectedObj();if(!o)return;
+      if(drag.mode==='rotate'){
+        const cx=o.x+o.w/2,cy=o.y+o.h/2;
+        o.rot=normDeg(Math.atan2(p.y-cy,p.x-cx)*180/Math.PI+90);
+      }else if(drag.mode==='resize'){
+        o.w=clamp(drag.startW+p.x-drag.startX,1,12-o.x);o.h=clamp(drag.startH+p.y-drag.startY,1,10-o.y);
+      }else{
+        const nx=p.x-drag.dx,ny=p.y-drag.dy;
+        if(o.type==='room'){o.x=clamp(nx,0,12-o.w);o.y=clamp(ny,0,10-o.h)}else constrainItem(o,nx,ny);
+      }
+      draw(false);
+    });
+    const finishDrag=()=>{
+      if(!drag)return;const o=selectedObj();
+      if(o){o.x=round(o.x);o.y=round(o.y);o.w=round(o.w,.05);o.h=round(o.h,.05);if(o.type!=='room')o.rot=Math.round(normDeg(o.rot||0))}
+      drag=null;persist();draw();beep(460,.03);
+    };
+    canvas.addEventListener('pointerup',finishDrag);
+    canvas.addEventListener('pointercancel',finishDrag);
     $$('[data-add-room]').forEach(b=>b.addEventListener('click',()=>{const n=b.dataset.addRoom;model.rooms.push({id:uid(),type:'room',name:n,x:1+model.rooms.length*.5,y:1+model.rooms.length*.5,w:n==='SDB'?2.5:3.5,h:n==='SDB'?2.2:3});model.selected=model.rooms.at(-1).id;persist();draw()}));
     $$('[data-add-item]').forEach(b=>b.addEventListener('click',()=>{const t=b.dataset.addItem,d=itemDef[t];model.items.push({id:uid(),type:t,x:2,y:2,w:d.w,h:d.h,rot:0});model.selected=model.items.at(-1).id;persist();draw()}));
     $('#deleteSelected').addEventListener('click',()=>{if(!model.selected)return;model.rooms=model.rooms.filter(x=>x.id!==model.selected);model.items=model.items.filter(x=>x.id!==model.selected);model.selected=null;persist();draw()});

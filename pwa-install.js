@@ -3,6 +3,8 @@
   const button = document.getElementById('installApp');
   if (!button) return;
 
+  button.textContent = '📲 Installer l’application';
+
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
   if (isStandalone) {
     button.hidden = true;
@@ -20,16 +22,16 @@
   button.addEventListener('click', async () => {
     if (deferredPrompt) {
       deferredPrompt.prompt();
-      await deferredPrompt.userChoice;
+      const choice = await deferredPrompt.userChoice;
       deferredPrompt = null;
-      button.hidden = true;
+      if (choice.outcome === 'accepted') button.hidden = true;
       return;
     }
 
     if (isIOS) {
-      alert("Sur iPhone/iPad : touche Partager, puis ‘Sur l’écran d’accueil’.");
+      alert("Sur iPhone/iPad : touche Partager, puis Sur l’écran d’accueil, puis Ajouter.");
     } else {
-      alert("Ouvre le menu du navigateur puis choisis ‘Installer l’application’ ou ‘Ajouter à l’écran d’accueil’.");
+      alert("Ouvre le menu du navigateur puis choisis Installer l’application ou Ajouter à l’écran d’accueil.");
     }
   });
 
@@ -38,6 +40,8 @@
   });
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js'));
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./service-worker.js').catch(() => {});
+    });
   }
 })();

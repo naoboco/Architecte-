@@ -4,10 +4,19 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#171717" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="ARCHI" />
   <title>ARCHI — Le jeu d'architecture</title>
-  <link rel="manifest" href="manifest.json" />
-  <link rel="icon" href="icons/icon-192.png" />
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" href="./icon-192.png" />
+  <link rel="apple-touch-icon" href="./icon-192.png" />
   <link rel="stylesheet" href="styles.css" />
+  <style>
+    #installApp{border:1px solid #171717;background:#d8ff53;color:#171717;border-radius:999px;padding:9px 13px;font:700 12px/1 system-ui;cursor:pointer;white-space:nowrap}
+    #installApp:hover{transform:translateY(-1px)}
+    @media(max-width:720px){#installApp{position:fixed;right:14px;bottom:82px;z-index:50;padding:12px 15px;box-shadow:0 8px 28px rgba(0,0,0,.16)}}
+  </style>
 </head>
 <body>
   <div class="app-shell">
@@ -20,6 +29,7 @@
         <div class="level-pill"><span id="rankLabel">Apprentie</span> · Niv. <b id="levelLabel">1</b></div>
         <div class="xp-wrap"><div class="xp-bar"><span id="xpFill"></span></div><small id="xpText">0 / 250 XP</small></div>
       </div>
+      <button id="installApp" type="button">⬇ Installer</button>
       <button id="soundToggle" class="icon-btn" title="Sons">🔊</button>
     </header>
 
@@ -121,5 +131,6 @@
 
   <div id="toast" class="toast" role="status"></div>
   <script src="app.js"></script>
+  <script src="pwa-install.js"></script>
 </body>
 </html>

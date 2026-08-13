@@ -23,7 +23,29 @@
 
     let deferredPrompt = null;
     const button = document.getElementById('installApp');
+    const levelPill = document.querySelector('.level-pill');
     if (!button) return;
+
+    if (levelPill && levelPill.parentElement) {
+      const row = document.createElement('div');
+      row.style.display = 'flex';
+      row.style.alignItems = 'center';
+      row.style.gap = '8px';
+      row.style.flexWrap = 'wrap';
+      levelPill.parentElement.insertBefore(row, levelPill);
+      row.appendChild(levelPill);
+      row.appendChild(button);
+    }
+
+    Object.assign(button.style, {
+      position: 'static',
+      right: 'auto',
+      bottom: 'auto',
+      zIndex: 'auto',
+      padding: '7px 10px',
+      fontSize: '11px',
+      boxShadow: 'none'
+    });
 
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
     if (isStandalone) {
@@ -34,13 +56,13 @@
     button.hidden = false;
     button.disabled = true;
     button.textContent = '📲 Préparation…';
-    button.style.opacity = '.6';
+    button.style.opacity = '.65';
 
     window.addEventListener('beforeinstallprompt', (event) => {
       event.preventDefault();
       deferredPrompt = event;
       button.disabled = false;
-      button.textContent = '📲 Installer l’application';
+      button.textContent = '📲 Installer';
       button.style.opacity = '1';
     });
 
